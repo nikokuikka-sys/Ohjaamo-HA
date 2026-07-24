@@ -27,6 +27,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+PLATFORMS = ["sensor"]
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -188,6 +189,9 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
         entiteetit=asetukset[CONF_ENTITEETIT],
         vali=int(asetukset.get(CONF_VALI, OLETUS_VALI)),
     )
+    # Sensorit: porssihinta ja kuormitus HA:n puolelle, jotta kayttaja voi kirjoittaa
+    # omat automaationsa ilman etta hanen tarvitsee vaihtaa sovellusta.
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_paivitettiin))
     return True
 
@@ -199,7 +203,7 @@ async def _paivitettiin(hass: HomeAssistant, entry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Poisto onnistuu aina; ajastin katoaa uudelleenlatauksessa."""
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def _testaa(hass, asetukset) -> str | None:

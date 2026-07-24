@@ -61,13 +61,56 @@ Voit muuttaa valintaa milloin tahansa samasta näkymästä.
 
 ---
 
+## Sensorit Home Assistantissa
+
+Integraatio luo kuusi sensoria, joten **et joudu vaihtamaan sovellusta** nähdäksesi
+pörssihinnan:
+
+| Sensori | Kertoo |
+|---|---|
+| `sensor.ohjaamo_porssihinta` | pörssihinta nyt, attribuuttina koko vuorokauden käyrä |
+| `sensor.ohjaamo_sahkon_kokonaishinta` | siirto ja marginaali mukana |
+| `sensor.ohjaamo_halvin_tunti_tanaan` | halvin tunti |
+| `sensor.ohjaamo_liittyman_kuormitus` | paljonko liittymästä on käytössä |
+| `sensor.ohjaamo_paasulake` | pääsulakkeen koko |
+| `sensor.ohjaamo_kuormanhallinta_rajoittaa` | rajoittaako juuri nyt |
+
+**Kirjoita omat automaatiosi niiden varaan:**
+
+```yaml
+automation:
+  - alias: "Pesukone vain halvalla"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.ohjaamo_sahkon_kokonaishinta
+        below: 8
+    action:
+      - service: switch.turn_on
+        target: { entity_id: switch.pesukone }
+```
+
+```yaml
+automation:
+  - alias: "Älä käynnistä saunaa jos liittymä on täynnä"
+    condition:
+      - condition: state
+        entity_id: sensor.ohjaamo_kuormanhallinta_rajoittaa
+        state: "ei rajoita"
+```
+
+🔴 Emme yritä korvata Home Assistantin automaatioita — **annamme tiedon jolla kirjoitat
+omasi.**
+
+---
+
 ## Mitä tämä EI tee
 
-**Ei ohjaa Home Assistantin laitteita Ohjaamosta.** Suunta on yksi: HA lähettää, Ohjaamo
-lukee. Ohjaus vaatisi yhteyden pilvestä kotiin — juuri sen jonka halusimme välttää.
+**Ei avaa mitään kotiverkkoosi.** Ohjaus toimii silti: Home Assistant **kysyy komennot**
+samalla kutsulla jolla se lähettää tiedot. Komento lähtee seuraavalla kierroksella,
+oletuksena minuutin sisällä.
 
-Laitteiden ohjaus Ohjaamossa tapahtuu suoraan valmistajan pilven kautta (Shelly, Sensibo)
-tai releen avulla.
+🔴 Se on hyväksyttävä viive varaajalle ja lämmitykselle — ne ovat hitaita laitteita.
+Valokatkaisijalle se olisi liikaa, ja niitä kannattaa ohjata suoraan Home Assistantissa.
 
 ---
 
