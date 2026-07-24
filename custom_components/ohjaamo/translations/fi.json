@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Yhdistä Ohjaamoon",
+        "description": "Hae siltatunnus Ohjaamosta: {ohje}\n\nKotiverkkoosi ei avata mitään — Home Assistant lähettää tiedot ulospäin.",
+        "data": {
+          "tunnus": "Siltatunnus",
+          "palvelin": "Palvelin"
+        }
+      },
+      "entiteetit": {
+        "title": "Valitse lähetettävät tiedot",
+        "description": "Valitse anturit ja laitteet jotka haluat näkyviin Ohjaamossa. Voit muuttaa valintaa myöhemmin.",
+        "data": {
+          "entiteetit": "Entiteetit",
+          "vali": "Lähetysväli"
+        }
+      }
+    },
+    "error": {
+      "tunnus_ei_kelpaa": "Tunnus ei kelvannut. Tarkista että kopioit sen kokonaan Ohjaamosta.",
+      "ei_yhteytta": "Ohjaamoon ei saada yhteyttä. Tarkista internetyhteys ja palvelinosoite.",
+      "palvelinvirhe": "Ohjaamon palvelin ei vastaa juuri nyt. Yritä hetken kuluttua uudelleen.",
+      "yhteysvirhe": "Yhteys ei onnistunut. Tarkista tunnus ja palvelinosoite."
+    },
+    "abort": {
+      "already_configured": "Ohjaamo on jo yhdistetty."
+    }
+  }
+}
