@@ -39,6 +39,9 @@ selain avaa sivun. Kotiverkkoosi ei avata mitään.
 Etsi **Ohjaamo** → **Lataa** → käynnistä Home Assistant uudelleen.
 
 ### 3. Yhdistä
+
+👉 **Yksityiskohtainen ohje latauksen jälkeen: [ASENNUS.md](ASENNUS.md)**
+
 **Asetukset → Laitteet ja palvelut → Lisää integraatio → Ohjaamo**
 
 1. Liitä **siltatunnus** (Ohjaamo → Laitteet → Home Assistant → Näytä tunnus)
