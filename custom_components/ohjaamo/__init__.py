@@ -14,6 +14,8 @@ import logging
 import voluptuous as vol
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import area_registry, entity_registry
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
@@ -82,6 +84,11 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                     "nimi": tila.attributes.get("friendly_name") or eid,
                     "laji": tila.attributes.get("device_class"),
                     "muutettu": tila.last_updated.isoformat(),
+                    # 🔴 Huone ja laitetunnus mukaan (VUORIn ehdotus): ne poistavat
+                    # kaksi kasityota Ohjaamon paassa — huoneen asettamisen erikseen
+                    # jokaiselle anturille, ja anturien ryhmittelyn laitteiksi.
+                    "huone": _alueen_nimi(hass, eid),
+                    "laite_id": _laitteen_id(hass, eid),
                 }
             )
 
@@ -129,6 +136,20 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
     ottaneet kayttoon, eika kenenkaan asennus hajoa paivityksessa.
     """
     asetukset = {**entry.data, **entry.options}
+
+    # 🔴 VUORIn loydos 24.7.2026: ilman tata HA merkitsee integraation epaonnistuneeksi
+    # jos palvelin ei satu vastaamaan asennushetkella — EIKA YRITA UUDELLEEN. Kayttaja
+    # joutuu poistamaan ja lisaamaan sen kasin, eika mikaan kerro miksi.
+    #
+    # ConfigEntryNotReady kertoo HA:lle etta kyse on TILAPAISESTA ongelmasta: se yrittaa
+    # automaattisesti kasvavin valein. ConfigEntryAuthFailed taas nayttaa kayttajalle
+    # "Uudelleentunnistaudu"-napin sen sijaan etta integraatio olisi vain rikki.
+    virhe = await _testaa(hass, asetukset)
+    if virhe == "tunnus_ei_kelpaa":
+        raise ConfigEntryAuthFailed("Ohjaamon tunnus ei kelpaa")
+    if virhe:
+        raise ConfigEntryNotReady(f"Ohjaamoon ei saada yhteytta: {virhe}")
+
     await _kaynnista(
         hass,
         palvelin=asetukset.get(CONF_PALVELIN, OLETUS_PALVELIN),
@@ -148,3 +169,61 @@ async def _paivitettiin(hass: HomeAssistant, entry) -> None:
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Poisto onnistuu aina; ajastin katoaa uudelleenlatauksessa."""
     return True
+
+
+async def _testaa(hass, asetukset) -> str | None:
+    """Kokeile yhteytta. Palauttaa virhekoodin tai None."""
+    istunto = async_get_clientsession(hass)
+    palvelin = str(asetukset.get(CONF_PALVELIN, OLETUS_PALVELIN)).rstrip("/")
+    try:
+        async with istunto.post(
+            f"{palvelin}/api/ohjaamo/silta/havainnot",
+            json={"havainnot": [{"entiteetti": "test.yhteys", "tila": "0", "nimi": "Yhteystesti"}]},
+            headers={"X-Ohjaamo-Silta": asetukset[CONF_TUNNUS]},
+            timeout=15,
+        ) as vastaus:
+            if vastaus.status == 401:
+                return "tunnus_ei_kelpaa"
+            if vastaus.status >= 400:
+                return f"palvelin vastasi {vastaus.status}"
+            return None
+    except Exception as e:  # noqa: BLE001
+        return str(e)[:120]
+
+
+def _alueen_nimi(hass, entity_id: str) -> str | None:
+    """
+    🔴 HA:n ALUE = OHJAAMON HUONE (VUORIn ehdotus).
+
+    Ilman tata kayttajan pitaa asettaa huone erikseen jokaiselle anturille. Nikon
+    tilissa on 54 laitetta, joten se on 54 muokkausta kasin. Home Assistantissa alue on
+    jo asetettu — otetaan se mukana, niin huoneet ovat valmiina ensimmaisesta hetkesta.
+    """
+    try:
+        ent = entity_registry.async_get(hass)
+        alueet = area_registry.async_get(hass)
+        merkinta = ent.async_get(entity_id)
+        if not merkinta:
+            return None
+        alue_id = merkinta.area_id
+        if not alue_id and merkinta.device_id:
+            from homeassistant.helpers import device_registry
+            laitteet = device_registry.async_get(hass)
+            laite = laitteet.async_get(merkinta.device_id)
+            alue_id = laite.area_id if laite else None
+        if not alue_id:
+            return None
+        alue = alueet.async_get_area(alue_id)
+        return alue.name if alue else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _laitteen_id(hass, entity_id: str) -> str | None:
+    """Mihin fyysiseen laitteeseen entiteetti kuuluu. Ohjaamo ryhmittaa sen mukaan."""
+    try:
+        ent = entity_registry.async_get(hass)
+        merkinta = ent.async_get(entity_id)
+        return merkinta.device_id if merkinta else None
+    except Exception:  # noqa: BLE001
+        return None
