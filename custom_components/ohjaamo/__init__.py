@@ -40,6 +40,15 @@ PLATFORMS = ["sensor"]
 #
 # Nyt tyhja valinta tarkoittaa "laheta kaikki mika on jarkevaa". Kayttaja valitsee
 # Ohjaamossa mitka pitaa nakyvissa — siella han nakee ne.
+# 🔴 ERAKOKO: lahetys pilkotaan. Ohjaamon palvelin hyvaksyy 256 kt, ja 250 entiteettia
+# attribuutteineen on arviolta 96 kt — mutta Teslan kaltainen integraatio voi tuoda satoja
+# entiteetteja pitkine attribuutteineen, jolloin raja ylittyy.
+#
+# Ylitys palauttaisi 413:n, eika kayttajalle nakyisi mitaan: lukemat vain eivat
+# paivittyisi. Se on sama hiljainen epaonnistuminen jota vastaan koko tama integraatio
+# on rakennettu. Pilkkominen poistaa koko riskin riippumatta laitemaarasta.
+ERAKOKO = 80
+
 KAIKKI_DOMAINIT = (
     "sensor", "binary_sensor", "switch", "light", "climate",
     "water_heater", "number", "select", "fan", "cover",
@@ -130,8 +139,12 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                     # rajat, tilat ja vaihtoehdot ilman etta niita tarvitsee luetella.
                     "attribuutit": {
                         k: v for k, v in attr.items()
-                        if k not in ("entity_picture", "icon", "attribution")
-                        and not (isinstance(v, (list, dict)) and len(str(v)) > 500)
+                        # 🔴 Rajat tiukennettu: 250 merkkia riittaa rajoihin ja
+                        # vaihtoehtoihin. Teslan sijaintihistoria tai kameran
+                        # kuvalista veisi kilotavuja kertomatta mitaan hyodyllista.
+                        if k not in ("entity_picture", "icon", "attribution",
+                                     "supported_features", "friendly_name")
+                        and len(str(v)) <= 250
                     },
                 }
             )
@@ -139,22 +152,37 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
         if not havainnot:
             return
 
+        # Pilkotaan eriin. Komennot tulevat vastauksessa, joten ne kasitellaan joka erasta.
+        for alku in range(0, len(havainnot), ERAKOKO):
+            era = havainnot[alku:alku + ERAKOKO]
+            await _laheta_era(hass, istunto, palvelin, tunnus, era, vali,
+                              osa=(alku // ERAKOKO) + 1,
+                              osia=(len(havainnot) + ERAKOKO - 1) // ERAKOKO)
+
+    async def _laheta_era(hass, istunto, palvelin, tunnus, havainnot, vali, osa, osia):
         try:
             async with istunto.post(
                 f"{palvelin}/api/ohjaamo/silta/havainnot",
                 json={"havainnot": havainnot},
                 headers={"X-Ohjaamo-Silta": tunnus},
-                timeout=20,
+                timeout=30,
             ) as vastaus:
                 if vastaus.status == 401:
                     _LOGGER.error(
                         "Ohjaamo: tunnus ei kelvannut. Tarkista silta-tunnus Ohjaamon "
                         "laiteasetuksista."
                     )
+                elif vastaus.status == 413:
+                    # 🔴 Kerrotaan tasmallisesti mita tehda. Pelkka "413" ei auta ketaan.
+                    _LOGGER.error(
+                        "Ohjaamo: lahetys oli liian iso (era %s/%s, %s entiteettia). "
+                        "Valitse asetuksista vain tarvitsemasi entiteetit.",
+                        osa, osia, len(havainnot),
+                    )
                 elif vastaus.status >= 400:
-                    _LOGGER.error("Ohjaamo: palvelin vastasi %s", vastaus.status)
+                    _LOGGER.error("Ohjaamo: palvelin vastasi %s (era %s/%s)", vastaus.status, osa, osia)
                 else:
-                    _LOGGER.debug("Ohjaamo: lahetetty %s havaintoa", len(havainnot))
+                    _LOGGER.debug("Ohjaamo: era %s/%s, %s havaintoa", osa, osia, len(havainnot))
                     # 🔴 KOMENNOT SAMASTA VASTAUKSESTA. Nain ohjaus toimii ilman etta
                     # kotiverkkoon avataan mitaan: HA kysyy komennot samalla kutsulla
                     # jolla se lahettaa havainnot. Ohjaamo ei koskaan avaa yhteytta
