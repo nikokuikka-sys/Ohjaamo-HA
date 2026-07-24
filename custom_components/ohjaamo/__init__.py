@@ -132,6 +132,16 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                     _LOGGER.error("Ohjaamo: palvelin vastasi %s", vastaus.status)
                 else:
                     _LOGGER.debug("Ohjaamo: lahetetty %s havaintoa", len(havainnot))
+                    # 🔴 KOMENNOT SAMASTA VASTAUKSESTA. Nain ohjaus toimii ilman etta
+                    # kotiverkkoon avataan mitaan: HA kysyy komennot samalla kutsulla
+                    # jolla se lahettaa havainnot. Ohjaamo ei koskaan avaa yhteytta
+                    # kotiin — se on koko "ilman pilvipalvelua" -lupauksen ydin.
+                    try:
+                        data = await vastaus.json()
+                    except Exception:  # noqa: BLE001
+                        data = {}
+                    for komento in (data.get("komennot") or []):
+                        await _aja_komento(hass, komento)
         except asyncio.TimeoutError:
             _LOGGER.warning("Ohjaamo: aikakatkaisu — yritetaan uudelleen %s s kuluttua", vali)
         except Exception as virhe:  # noqa: BLE001
@@ -248,3 +258,27 @@ def _laitteen_id(hass, entity_id: str) -> str | None:
         return merkinta.device_id if merkinta else None
     except Exception:  # noqa: BLE001
         return None
+
+
+async def _aja_komento(hass, komento) -> None:
+    """
+    Aja Ohjaamosta tullut komento Home Assistantin palveluna.
+
+    🔴 Palvelu ja kentat tulevat HA:n OMASTA mallista (esim. water_heater.set_temperature),
+    joten uusi laitetyyppi toimii ilman muutoksia tahan. Emme tulkitse komentoa emmeka
+    muunna sita — valitamme sen sellaisenaan.
+    """
+    try:
+        palvelu = str(komento.get("palvelu") or "")
+        entiteetti = str(komento.get("entiteetti") or "")
+        if "." not in palvelu or not entiteetti:
+            _LOGGER.warning("Ohjaamo: virheellinen komento ohitettu: %s", komento)
+            return
+        domain, toiminto = palvelu.split(".", 1)
+        tiedot = dict(komento.get("tiedot") or {})
+        tiedot["entity_id"] = entiteetti
+        await hass.services.async_call(domain, toiminto, tiedot, blocking=False)
+        _LOGGER.info("Ohjaamo: ajettiin %s -> %s", palvelu, entiteetti)
+    except Exception as virhe:  # noqa: BLE001
+        # Yhden komennon vika ei saa estaa muita eika kaataa lahetysta.
+        _LOGGER.warning("Ohjaamo: komento epaonnistui (%s): %s", komento.get("palvelu"), virhe)
