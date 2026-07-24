@@ -2,10 +2,10 @@
   "domain": "ohjaamo",
   "name": "Ohjaamo",
   "version": "1.0.0",
-  "documentation": "https://ohjaamo.io/ohje/home-assistant",
-  "issue_tracker": "https://ohjaamo.io/tuki",
+  "documentation": "https://github.com/nikokuikka-sys/Ohjaamo-HA/blob/main/ASENNUS.md",
+  "issue_tracker": "https://github.com/nikokuikka-sys/Ohjaamo-HA/issues",
   "codeowners": [
-    "@owella"
+    "@nikokuikka-sys"
   ],
   "requirements": [],
   "iot_class": "local_push",
