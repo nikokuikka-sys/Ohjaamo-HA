@@ -11,9 +11,9 @@
       },
       "entiteetit": {
         "title": "Valitse lähetettävät tiedot",
-        "description": "Valitse anturit ja laitteet jotka haluat näkyviin Ohjaamossa. Voit muuttaa valintaa myöhemmin.",
+        "description": "Voit jättää tyhjäksi — silloin Ohjaamo hakee kaikki laitteesi ja valitset siellä mitkä pidät näkyvissä. Tai valitse tässä vain tietyt.",
         "data": {
-          "entiteetit": "Entiteetit",
+          "entiteetit": "Entiteetit (valinnainen)",
           "vali": "Lähetysväli"
         }
       }

@@ -101,7 +101,11 @@ class OhjaamoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="entiteetit",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_ENTITEETIT): selector.EntitySelector(
+                    # 🔴 VALINNAINEN. Tyhja = laheta kaikki. Kayttaja ei voi tietaa mita
+                    # valita ennen kuin han on nahnyt laitteet Ohjaamossa — ja tyhja
+                    # valinta johti siihen ettei mitaan lahetetty, mika nayttaa
+                    # tasmalleen samalta kuin rikkinainen yhteys.
+                    vol.Optional(CONF_ENTITEETIT, default=[]): selector.EntitySelector(
                         selector.EntitySelectorConfig(multiple=True)
                     ),
                     vol.Optional(CONF_VALI, default=OLETUS_VALI): selector.NumberSelector(

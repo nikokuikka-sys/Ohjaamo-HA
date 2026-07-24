@@ -29,6 +29,22 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor"]
 
+# 🔴 TYHJA VALINTA = LAHETA KAIKKI (KOSKI 24.7.2026).
+#
+# Nikon diagnostiikkatiedostossa oli `"entiteetit": []` ja `"entiteetteja": 0`. Yhteys
+# toimi, mutta mitaan ei lahetetty — ja kayttajalle se nayttaa TASMALLEEN samalta kuin
+# rikkinainen yhteys.
+#
+# Syy on suunnitteluvirhe: pyysimme kayttajaa valitsemaan entiteetit ENNEN kuin han on
+# nahnyt niita Ohjaamossa. Han ei voi tietaa mita valita.
+#
+# Nyt tyhja valinta tarkoittaa "laheta kaikki mika on jarkevaa". Kayttaja valitsee
+# Ohjaamossa mitka pitaa nakyvissa — siella han nakee ne.
+KAIKKI_DOMAINIT = (
+    "sensor", "binary_sensor", "switch", "light", "climate",
+    "water_heater", "number", "select", "fan", "cover",
+)
+
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.Schema(
@@ -69,8 +85,14 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
 
     async def laheta(_nyt=None):
         """Kerää valitut entiteetit ja lahetä ne Ohjaamoon."""
+        # Tyhja lista -> kaikki tuetut entiteetit.
+        lahetettavat = entiteetit or [
+            e for e in hass.states.async_entity_ids()
+            if e.split(".")[0] in KAIKKI_DOMAINIT
+        ]
+
         havainnot = []
-        for eid in entiteetit:
+        for eid in lahetettavat:
             tila = hass.states.get(eid)
             attr = tila.attributes if tila else {}
             if tila is None:
@@ -154,8 +176,9 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
     hass.async_create_task(laheta())
 
     _LOGGER.info(
-        "Ohjaamo-silta kaynnistetty: %s entiteettia, valitys %s s, palvelin %s",
-        len(entiteetit), vali, palvelin,
+        "Ohjaamo-silta kaynnistetty: %s, valitys %s s, palvelin %s",
+        f"{len(entiteetit)} valittua entiteettia" if entiteetit else "KAIKKI tuetut entiteetit",
+        vali, palvelin,
     )
     return True
 
