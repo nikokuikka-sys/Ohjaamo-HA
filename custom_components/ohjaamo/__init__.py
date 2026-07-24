@@ -71,6 +71,7 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
         havainnot = []
         for eid in entiteetit:
             tila = hass.states.get(eid)
+            attr = tila.attributes if tila else {}
             if tila is None:
                 # 🔴 Puuttuva entiteetti kerrotaan, ei ohiteta hiljaa: kirjoitusvirhe
                 # asetuksissa nayttaisi muuten silta etta anturi on rikki.
@@ -80,15 +81,35 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                 {
                     "entiteetti": eid,
                     "tila": tila.state,
-                    "yksikko": tila.attributes.get("unit_of_measurement"),
-                    "nimi": tila.attributes.get("friendly_name") or eid,
-                    "laji": tila.attributes.get("device_class"),
+                    "yksikko": attr.get("unit_of_measurement"),
+                    "nimi": attr.get("friendly_name") or eid,
+                    "laji": attr.get("device_class"),
                     "muutettu": tila.last_updated.isoformat(),
                     # 🔴 Huone ja laitetunnus mukaan (VUORIn ehdotus): ne poistavat
                     # kaksi kasityota Ohjaamon paassa — huoneen asettamisen erikseen
                     # jokaiselle anturille, ja anturien ryhmittelyn laitteiksi.
                     "huone": _alueen_nimi(hass, eid),
                     "laite_id": _laitteen_id(hass, eid),
+                    # 🔴 KYVYT — tama on se mika poistaa laitekohtaisen koodauksen.
+                    #
+                    # Home Assistantilla on jo yleinen malli: `domain` kertoo laitetyypin
+                    # (water_heater, climate, switch), `supported_features` on bittimaski
+                    # joka kertoo MITA LAITE OSAA, ja attribuutit kertovat rajat
+                    # (min_temp, max_temp) ja vaihtoehdot (operation_list).
+                    #
+                    # Kun lahetamme naman sellaisenaan, Ohjaamo osaa rakentaa ohjauksen
+                    # MILLE TAHANSA laitteelle jota HA tukee — myos sellaiselle jota ei
+                    # ollut olemassa kun tama koodi kirjoitettiin. Uusi laite ei vaadi
+                    # riviakaan uutta koodia kummassakaan paassa.
+                    "domain": eid.split(".")[0],
+                    "kyvyt": attr.get("supported_features"),
+                    # Kaikki attribuutit paitsi kuvat ja pitkat listat: niista tulee
+                    # rajat, tilat ja vaihtoehdot ilman etta niita tarvitsee luetella.
+                    "attribuutit": {
+                        k: v for k, v in attr.items()
+                        if k not in ("entity_picture", "icon", "attribution")
+                        and not (isinstance(v, (list, dict)) and len(str(v)) > 500)
+                    },
                 }
             )
 

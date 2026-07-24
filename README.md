@@ -103,4 +103,4 @@ Home Assistant **2024.4.0** tai uudempi.
 
 ---
 
-Tehnyt [Owella Software](https://ohjaamo.io) · Rewo Works Oy
+Tehnyt [Owella Software](https://ohjaamo.io) · Owella Software
