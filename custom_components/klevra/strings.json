@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Yhdistä Klevra Homeen",
+        "description": "Hae siltatunnus ja palvelinosoite Klevra Homesta: {ohje}\n\nKotiverkkoosi ei avata mitään — Home Assistant lähettää tiedot ulospäin.",
+        "data": {
+          "tunnus": "Siltatunnus",
+          "palvelin": "Palvelinosoite"
+        },
+        "data_description": {
+          "tunnus": "Kopioi tunnus kokonaan Klevra Homen Home Assistant -näkymästä. Se on salasana — älä lähetä sitä sähköpostissa.",
+          "palvelin": "Koko osoite muodossa https://… Ota se Klevra Homen samasta näkymästä. Vanha ohjaamo.io-osoite ei enää toimi, joten älä käytä sitä."
+        }
+      },
+      "entiteetit": {
+        "title": "Valitse lähetettävät tiedot",
+        "description": "Voit jättää tyhjäksi — silloin Klevra Home hakee kaikki laitteesi ja valitset siellä mitkä pidät näkyvissä. Tai valitse tässä vain tietyt.",
+        "data": {
+          "entiteetit": "Entiteetit (valinnainen)",
+          "vali": "Lähetysväli"
+        }
+      }
+    },
+    "error": {
+      "tunnus_ei_kelpaa": "Tunnus ei kelvannut. Tarkista että kopioit sen kokonaan Klevra Homesta.",
+      "vaara_osoite": "Palvelin vastasi, mutta ei tunne siltaosoitetta. Tarkista palvelinosoite Klevra Homesta — vanha ohjaamo.io ei enää toimi.",
+      "ei_yhteytta": "Palvelimeen ei saada yhteyttä. Tarkista internetyhteys ja palvelinosoite.",
+      "palvelinvirhe": "Klevra Homen palvelin ei vastaa juuri nyt. Yritä hetken kuluttua uudelleen.",
+      "yhteysvirhe": "Yhteys ei onnistunut. Tarkista tunnus ja palvelinosoite."
+    },
+    "abort": {
+      "already_configured": "Klevra Home on jo yhdistetty."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Klevra Homen asetukset",
+        "description": "Voit vaihtaa palvelinosoitteen, tunnuksen ja lähetettävät tiedot ilman että poistat integraation. Muutos otetaan käyttöön heti — ei uudelleenkäynnistystä.",
+        "data": {
+          "palvelin": "Palvelinosoite",
+          "tunnus": "Siltatunnus",
+          "entiteetit": "Entiteetit (valinnainen)",
+          "vali": "Lähetysväli"
+        },
+        "data_description": {
+          "palvelin": "Osoite vaihtuu, kun Klevra Homelle rekisteröidään uusi domain. Silloin päivitä se tähän — integraatiota ei tarvitse poistaa.",
+          "tunnus": "Jos perut tunnuksen Klevra Homessa, liitä uusi tähän.",
+          "entiteetit": "Tyhjä = lähetä kaikki tuetut laitteet.",
+          "vali": "Sekunteja, 15–3600."
+        }
+      }
+    },
+    "error": {
+      "tunnus_ei_kelpaa": "Tunnus ei kelvannut. Tarkista että kopioit sen kokonaan Klevra Homesta.",
+      "vaara_osoite": "Palvelin vastasi, mutta ei tunne siltaosoitetta. Tarkista palvelinosoite Klevra Homesta — vanha ohjaamo.io ei enää toimi.",
+      "ei_yhteytta": "Palvelimeen ei saada yhteyttä. Tarkista internetyhteys ja palvelinosoite.",
+      "palvelinvirhe": "Klevra Homen palvelin ei vastaa juuri nyt. Yritä hetken kuluttua uudelleen.",
+      "yhteysvirhe": "Yhteys ei onnistunut. Tarkista tunnus ja palvelinosoite."
+    }
+  }
+}

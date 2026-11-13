@@ -6,7 +6,7 @@ tiedoston ja lahettaa sen tukeen, jolloin nakyy tasan mita on asetettu ja mita
 lahetetaan — ei sita mita han muistaa asettaneensa.
 
 🔴 TUNNUS SALATAAN. Tiedosto paatyy sahkopostiin ja tukijarjestelmiin, joten siina ei
-saa olla salasanaa. Sama saanto kuin Ohjaamon tapahtumalokissa.
+saa olla salasanaa. Sama saanto kuin Klevra Homen tapahtumalokissa.
 """
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant

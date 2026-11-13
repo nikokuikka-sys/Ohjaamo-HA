@@ -1,7 +1,7 @@
 {
-  "domain": "ohjaamo",
-  "name": "Ohjaamo",
-  "version": "1.0.0",
+  "domain": "klevra",
+  "name": "Klevra Home",
+  "version": "2.0.0",
   "documentation": "https://github.com/nikokuikka-sys/Ohjaamo-HA/blob/main/ASENNUS.md",
   "issue_tracker": "https://github.com/nikokuikka-sys/Ohjaamo-HA/issues",
   "codeowners": [

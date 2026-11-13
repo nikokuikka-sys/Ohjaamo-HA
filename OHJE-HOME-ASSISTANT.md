@@ -1,14 +1,23 @@
-# Ohjaamo + Home Assistant — asennusohje
+# Klevra Home + Home Assistant — asennusohje
 
 **Ilman pilvipalvelua.** Ei Nabu Casaa, ei porttiohjausta, ei VPN:ää.
+
+<!-- SIIRTYMA:ALKU -->
+> 🔴 **Päivitätkö Ohjaamosta?** Nimi vaihtui Klevra Homeksi versiossa 2.0.0, ja
+> kaikkien kuuden sensorin entiteettitunnus muuttui (`sensor.ohjaamo_*` →
+> `sensor.klevra_*`). Automaatiosi lakkaavat toimimasta hiljaa.
+> **Lue siirtymäohje ja vanha→uusi-taulukko [ASENNUS.md](ASENNUS.md):n alusta
+> ennen kuin teet mitään muuta.** Vanha integraatio ja kansio
+> `/config/custom_components/ohjaamo` on poistettava ennen uuden asennusta.
+<!-- SIIRTYMA:LOPPU -->
 
 ---
 
 ## Miksi tämä toimii ilman pilveä
 
-Home Assistant on kotonasi, reitittimen takana. Ohjaamo on internetissä.
+Home Assistant on kotonasi, reitittimen takana. Klevra Home on internetissä.
 
-🔴 **Ohjaamo ei voi soittaa kotiisi** — se vaatisi porttiohjauksen tai VPN:n, ja
+🔴 **Palvelin ei voi soittaa kotiisi** — se vaatisi porttiohjauksen tai VPN:n, ja
 molemmat avaavat kotiverkkoosi reiän.
 
 Siksi suunta on käännetty: **Home Assistant lähettää tiedot ulospäin.**
@@ -16,7 +25,7 @@ Siksi suunta on käännetty: **Home Assistant lähettää tiedot ulospäin.**
 ```
    KOTI                          INTERNET
  ┌─────────────────┐           ┌──────────────┐
- │ Home Assistant  │  ──────▶  │   Ohjaamo    │
+ │ Home Assistant  │  ──────▶  │ Klevra Home  │
  │ + Midea-varaaja │  lähettää │              │
  └─────────────────┘   60 s    └──────────────┘
       ei avattuja portteja
@@ -27,16 +36,20 @@ avata mitään.**
 
 ---
 
-# OSA 1 — Ohjaamon puoli (2 min)
+# OSA 1 — Klevra Homen puoli (2 min)
 
-### 1.1 Hae siltatunnus
-Ohjaamo → **Valikko → Laitteet ja anturit → Home Assistant → Näytä tunnus**
+### 1.1 Hae siltatunnus ja palvelinosoite
+Klevra Home → **Valikko → Laitteet ja anturit → Home Assistant → Näytä tunnus**
 
-Saat tunnuksen joka alkaa `ohj_`. Se on **kohdekohtainen**: jokaisella kohteella on oma,
-eikä yksi tunnus paljasta muita.
+Saat **siltatunnuksen** ja **palvelinosoitteen**. Tunnus on **kohdekohtainen**:
+jokaisella kohteella on oma, eikä yksi tunnus paljasta muita.
 
 🔴 **Tunnus on salasana.** Älä lähetä sitä sähköpostissa äläkä kuvakaappauksessa. Jos se
 vuotaa, peru se samasta näkymästä — vanha lakkaa toimimasta heti.
+
+🔴 **Palvelinosoite vaihtuu, kun Klevra Homelle rekisteröidään uusi domain.** Silloin
+sitä ei tarvitse asentaa uudelleen: osoite päivitetään asetusnäkymästä
+(**Asetukset → Laitteet ja palvelut → Klevra Home → Määritä**).
 
 ---
 
@@ -48,7 +61,7 @@ Valitse **A** (suositeltu) tai **B**.
 
 ## A. Ohjattu asennus HACSin kautta ⭐ 3 min, ei tiedostoja
 
-### A.1 Lisää Ohjaamo HACSiin
+### A.1 Lisää tietovarasto HACSiin
 HA → **HACS → Integraatiot → ⋮ (oikea yläkulma) → Mukautetut tietovarastot**
 
 ```
@@ -57,22 +70,29 @@ Luokka:        Integration
 ```
 → **Lisää**
 
+Repon osoite ei muuttunut nimenvaihdossa, joten jos se on jo lisätty, ohita tämä.
+
 ### A.2 Asenna
-Etsi HACSista **Ohjaamo** → **Lataa** → käynnistä HA uudelleen.
+Etsi HACSista **Klevra Home** → **Lataa** → käynnistä HA uudelleen.
+
+🔴 HACS lataa oletuksena viimeisimmän **julkaisun**. Jos nimenvaihtoa ei ole vielä
+julkaistu, valitse versiovalikosta `main`.
 
 ### A.3 Yhdistä — kaikki dialogissa
-**Asetukset → Laitteet ja palvelut → Lisää integraatio → Ohjaamo**
+**Asetukset → Laitteet ja palvelut → Lisää integraatio → Klevra Home**
 
-1. **Liitä siltatunnus** (osasta 1). 🔴 Tunnus **testataan heti**: jos se on väärä,
-   näet sen tässä etkä vasta tunnin päästä ihmetellessäsi miksi mitään ei näy.
+1. **Liitä siltatunnus ja palvelinosoite** (osasta 1). 🔴 Molemmat **testataan heti**:
+   jos jompikumpi on väärä, näet sen tässä etkä vasta tunnin päästä ihmetellessäsi
+   miksi mitään ei näy.
 2. **Valitse entiteetit listalta.** Et kirjoita nimiä käsin — `sensor.varaaja_current_temperature`
    on pitkä ja virhealtis, ja kirjoitusvirhe oli yleisin syy siihen ettei tieto tullut perille.
 3. **Aseta lähetysväli** (oletus 60 s).
 
 **Valmis.** Ei tiedostoja, ei YAML:ia, ei uudelleenkäynnistystä.
 
-🔴 Voit **muuttaa entiteettivalintaa myöhemmin** samasta näkymästä — asetukset latautuvat
-uudelleen automaattisesti.
+🔴 Voit **muuttaa kaikkia näitä myöhemmin** kohdasta **Klevra Home → Määritä** —
+palvelinosoitteen, tunnuksen, entiteettivalinnan ja lähetysvälin. Asetukset latautuvat
+uudelleen automaattisesti, eikä integraatiota tarvitse poistaa.
 
 ---
 
@@ -81,20 +101,26 @@ uudelleen automaattisesti.
 # OSA 2B — Käsiasennus (10 min)
 
 ### 2.1 Lataa ja pura tiedosto
-Lataa `ohjaamo-ha-silta.zip` ja pura se.
+Lataa repon sisältö ja pura se.
 
 ### 2.2 Kopioi kansio Home Assistantiin
-Kopioi `custom_components/ohjaamo` HA:n konfiguraatiokansioon:
+Kopioi `custom_components/klevra` HA:n konfiguraatiokansioon:
 
 ```
 /config/
   configuration.yaml
   custom_components/
-    ohjaamo/          ← tähän
+    klevra/           ← tähän
       __init__.py
       const.py
       manifest.json
 ```
+
+<!-- SIIRTYMA:ALKU -->
+🔴 **Jos sinulla on vanha `custom_components/ohjaamo`, poista se.** Muuten molemmat
+lähettävät rinnakkain.
+<!-- SIIRTYMA:LOPPU -->
+
 
 **Miten kopioit** riippuu asennuksestasi:
 | Asennus | Tapa |
@@ -114,8 +140,8 @@ water_heater.varaaja                   tila (päällä / pois / tila)
 sensor.varaaja_power                   teho
 ```
 🔴 **Nimet vaihtelevat.** Kopioi ne täsmälleen kuten HA näyttää — kirjoitusvirhe on
-yleisin syy siihen ettei tieto tule perille. Lisäosa **varoittaa lokissa** jos entiteettiä
-ei ole, joten virhe ei jää huomaamatta.
+yleisin syy siihen ettei tieto tule perille. Integraatio **varoittaa lokissa** jos
+entiteettiä ei ole, joten virhe ei jää huomaamatta.
 
 ### 2.4 Lisää asetukset
 
@@ -124,8 +150,9 @@ ei ole, joten virhe ei jää huomaamatta.
 Avaa `/config/configuration.yaml` ja lisää loppuun:
 
 ```yaml
-ohjaamo:
-  tunnus: "ohj_TÄHÄN_TUNNUS_OHJAAMOSTA"
+klevra:
+  tunnus: "TÄHÄN_TUNNUS_KLEVRA_HOMESTA"
+  palvelin: "https://TÄHÄN_OSOITE_KLEVRA_HOMESTA"
   entiteetit:
     - sensor.varaaja_current_temperature
     - sensor.varaaja_target_temperature
@@ -136,22 +163,26 @@ ohjaamo:
   vali: 60          # sekuntia, 15–3600
 ```
 
+🔴 **Avain on nyt `klevra:`, ei vanha nimi**, ja `palvelin` on **pakollinen** — sillä ei
+ole enää oletusarvoa, koska vanha oletusosoite ei vastaa.
+
 ### 2.5 Käynnistä uudelleen
 **Asetukset → Järjestelmä → Käynnistä uudelleen**
 
 ### 2.6 Tarkista että se toimii
-**Asetukset → Järjestelmä → Lokit**, etsi sana `Ohjaamo`:
+**Asetukset → Järjestelmä → Lokit**, etsi sana `Klevra`:
 
 | Lokirivi | Merkitys |
 |---|---|
-| `Ohjaamo-silta kaynnistetty: 4 entiteettia` | ✅ toimii |
+| `Klevra Home-silta kaynnistetty: 4 entiteettia` | ✅ toimii |
 | `entiteettia sensor.x ei ole olemassa` | kirjoitusvirhe kohdassa 2.3 |
 | `tunnus ei kelvannut` | väärä tunnus, hae uudelleen |
+| `palvelin ei tunne osoitetta` | väärä palvelinosoite |
 | `aikakatkaisu` | verkko-ongelma, yrittää itse uudelleen |
 
 ---
 
-# OSA 3 — Varmista Ohjaamosta
+# OSA 3 — Varmista Klevra Homesta
 
 Minuutin kuluttua: **Laitteet ja anturit**. Varaajan pitäisi näkyä lukemineen.
 
@@ -175,24 +206,27 @@ joka kestää tuntien katkon huomaamatta.
 ## Vianetsintä
 
 **Ei mitään lokissa** → kansio on väärässä paikassa. Sen on oltava
-`/config/custom_components/ohjaamo/`, ei `/config/ohjaamo/`.
+`/config/custom_components/klevra/`, ei `/config/klevra/`.
 
-**"Integration error: ohjaamo"** → `manifest.json` puuttuu tai kansio on väärin nimetty.
+**"Integration error: klevra"** → `manifest.json` puuttuu tai kansio on väärin nimetty.
 
 **Lukemat eivät päivity** → tarkista `vali`. Alle 15 s ei kelpaa; se kuormittaisi turhaan.
+
+**`palvelin ei tunne osoitetta` (404)** → osoite on väärä, tai siltarajapinta on
+siirtynyt palvelimen päässä. Tämä ei ole tunnuksen eikä verkon vika.
 
 **Lämpötila näkyy mutta ohjaus ei toimi** → ohjaus tulee Shellyltä, ei HA:sta. Tarkista
 että Shelly-kytkin on liitetty samaan kohteeseen.
 
 ---
 
-## Mitä tämä lisäosa EI tee
+## Mitä tämä integraatio EI tee
 
-- **Ei ohjaa HA:n laitteita Ohjaamosta.** Suunta on yksi: HA lähettää, Ohjaamo lukee.
-  Ohjaus vaatisi yhteyden pilvestä kotiin — juuri sen jonka halusimme välttää.
-  Varaajan ohjaus tulee **Shelly-kytkimen kautta**, ja se toimii jo.
 - **Ei lähetä mitään mitä et ole listannut.** Vain `entiteetit`-listan rivit lähtevät.
+  Tyhjä lista on poikkeus: se tarkoittaa "kaikki tuetut".
 - **Ei tallenna salasanoja.** Vain tilat, yksiköt ja nimet.
+- **Ei avaa mitään kotiverkkoosi.** Ohjaus toimii silti: komennot tulevat samassa
+  vastauksessa, jolla HA lähettää havainnot.
 
 ---
 
@@ -204,4 +238,4 @@ että Shelly-kytkin on liitetty samaan kohteeseen.
 | Tunnistus | kohdekohtainen tunnus, peruttavissa milloin tahansa |
 | Kotiverkko | **ei avattuja portteja** |
 | Data | vain listaamasi entiteetit |
-| Peruminen | Ohjaamo → Home Assistant → **Peru tunnus** |
+| Peruminen | Klevra Home → Home Assistant → **Peru tunnus** |

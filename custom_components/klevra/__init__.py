@@ -1,10 +1,14 @@
 """
-Ohjaamo-silta Home Assistantille.
+Klevra Home -silta Home Assistantille.
 
 🔴 TOIMII ILMAN PILVIPALVELUA.
-Tama lisaosa ei kayta Nabu Casaa, porttiohjausta eika VPN:aa. Home Assistant lahettaa
-valitsemasi entiteettien tilat Ohjaamoon saannollisin valein — yhteys avataan aina
-KOTOA ULOSPAIN, joten kotiverkkoon ei avata mitaan.
+Tama integraatio ei kayta Nabu Casaa, porttiohjausta eika VPN:aa. Home Assistant
+lahettaa valitsemasi entiteettien tilat Klevra Homeen saannollisin valein — yhteys
+avataan aina KOTOA ULOSPAIN, joten kotiverkkoon ei avata mitaan.
+
+🔴 TAMA KORVAA OHJAAMON. Entiteettitunnukset muuttuivat `sensor.ohjaamo_*` ->
+`sensor.klevra_*`, joten vanhat automaatiot EIVAT toimi ilman muutosta. Siirtymaohje
+on README.md:n ja ASENNUS.md:n alussa.
 
 Asennus ja kaytto: katso OHJE-HOME-ASSISTANT.md
 """
@@ -12,7 +16,6 @@ import asyncio
 import logging
 
 import voluptuous as vol
-from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import area_registry, entity_registry
@@ -22,8 +25,8 @@ from homeassistant.helpers.event import async_track_time_interval
 from datetime import timedelta
 
 from .const import (
-    DOMAIN, CONF_PALVELIN, CONF_TUNNUS, CONF_ENTITEETIT, CONF_VALI,
-    OLETUS_PALVELIN, OLETUS_VALI,
+    DOMAIN, TUOTENIMI, CONF_PALVELIN, CONF_TUNNUS, CONF_ENTITEETIT, CONF_VALI,
+    OLETUS_VALI, POLKU_HAVAINNOT, OTSAKE_TUNNUS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,11 +39,11 @@ PLATFORMS = ["sensor"]
 # rikkinainen yhteys.
 #
 # Syy on suunnitteluvirhe: pyysimme kayttajaa valitsemaan entiteetit ENNEN kuin han on
-# nahnyt niita Ohjaamossa. Han ei voi tietaa mita valita.
+# nahnyt niita sovelluksessa. Han ei voi tietaa mita valita.
 #
 # Nyt tyhja valinta tarkoittaa "laheta kaikki mika on jarkevaa". Kayttaja valitsee
-# Ohjaamossa mitka pitaa nakyvissa — siella han nakee ne.
-# 🔴 ERAKOKO: lahetys pilkotaan. Ohjaamon palvelin hyvaksyy 256 kt, ja 250 entiteettia
+# Klevra Homessa mitka pitaa nakyvissa — siella han nakee ne.
+# 🔴 ERAKOKO: lahetys pilkotaan. Palvelin hyvaksyy 256 kt, ja 250 entiteettia
 # attribuutteineen on arviolta 96 kt — mutta Teslan kaltainen integraatio voi tuoda satoja
 # entiteetteja pitkine attribuutteineen, jolloin raja ylittyy.
 #
@@ -59,7 +62,10 @@ CONFIG_SCHEMA = vol.Schema(
         DOMAIN: vol.Schema(
             {
                 vol.Required(CONF_TUNNUS): cv.string,
-                vol.Optional(CONF_PALVELIN, default=OLETUS_PALVELIN): cv.string,
+                # 🔴 PAKOLLINEN, EI OLETUSTA. Ks. const.py: vanha oletus ohjaamo.io
+                # on suljettu (503 suspend-by-user), ja kuollut oletus epaonnistuisi
+                # hiljaa. Osoite otetaan Klevra Homesta.
+                vol.Required(CONF_PALVELIN): cv.string,
                 vol.Required(CONF_ENTITEETIT): vol.All(cv.ensure_list, [cv.entity_id]),
                 vol.Optional(CONF_VALI, default=OLETUS_VALI): vol.All(
                     vol.Coerce(int), vol.Range(min=15, max=3600)
@@ -93,7 +99,7 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
     istunto = async_get_clientsession(hass)
 
     async def laheta(_nyt=None):
-        """Kerää valitut entiteetit ja lahetä ne Ohjaamoon."""
+        """Kerää valitut entiteetit ja lahetä ne Klevra Homeen."""
         # Tyhja lista -> kaikki tuetut entiteetit.
         lahetettavat = entiteetit or [
             e for e in hass.states.async_entity_ids()
@@ -107,7 +113,7 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
             if tila is None:
                 # 🔴 Puuttuva entiteetti kerrotaan, ei ohiteta hiljaa: kirjoitusvirhe
                 # asetuksissa nayttaisi muuten silta etta anturi on rikki.
-                _LOGGER.warning("Ohjaamo: entiteettia %s ei ole olemassa", eid)
+                _LOGGER.warning("%s: entiteettia %s ei ole olemassa", TUOTENIMI, eid)
                 continue
             havainnot.append(
                 {
@@ -118,7 +124,7 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                     "laji": attr.get("device_class"),
                     "muutettu": tila.last_updated.isoformat(),
                     # 🔴 Huone ja laitetunnus mukaan (VUORIn ehdotus): ne poistavat
-                    # kaksi kasityota Ohjaamon paassa — huoneen asettamisen erikseen
+                    # kaksi kasityota palvelimen paassa — huoneen asettamisen erikseen
                     # jokaiselle anturille, ja anturien ryhmittelyn laitteiksi.
                     "huone": _alueen_nimi(hass, eid),
                     "laite_id": _laitteen_id(hass, eid),
@@ -129,7 +135,7 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                     # joka kertoo MITA LAITE OSAA, ja attribuutit kertovat rajat
                     # (min_temp, max_temp) ja vaihtoehdot (operation_list).
                     #
-                    # Kun lahetamme naman sellaisenaan, Ohjaamo osaa rakentaa ohjauksen
+                    # Kun lahetamme naman sellaisenaan, palvelin osaa rakentaa ohjauksen
                     # MILLE TAHANSA laitteelle jota HA tukee — myos sellaiselle jota ei
                     # ollut olemassa kun tama koodi kirjoitettiin. Uusi laite ei vaadi
                     # riviakaan uutta koodia kummassakaan paassa.
@@ -162,30 +168,42 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
     async def _laheta_era(hass, istunto, palvelin, tunnus, havainnot, vali, osa, osia):
         try:
             async with istunto.post(
-                f"{palvelin}/api/ohjaamo/silta/havainnot",
+                # 🔴 POLKU JA OTSAKE: palvelimen sopimus, ks. const.py. Ne sanovat yha
+                # "ohjaamo" tarkoituksella — ne eivat ole taman integraation nimia.
+                f"{palvelin}{POLKU_HAVAINNOT}",
                 json={"havainnot": havainnot},
-                headers={"X-Ohjaamo-Silta": tunnus},
+                headers={OTSAKE_TUNNUS: tunnus},
                 timeout=30,
             ) as vastaus:
                 if vastaus.status == 401:
                     _LOGGER.error(
-                        "Ohjaamo: tunnus ei kelvannut. Tarkista silta-tunnus Ohjaamon "
-                        "laiteasetuksista."
+                        "%s: tunnus ei kelvannut. Tarkista silta-tunnus Klevra Homen "
+                        "laiteasetuksista.", TUOTENIMI,
+                    )
+                elif vastaus.status == 404:
+                    # 🔴 404 = palvelimen pää puuttuu, ei kayttajan virhe. Ks. const.py:
+                    # siltapaa elaa poistuvassa `src/ohjaamo/`-moduulissa.
+                    _LOGGER.error(
+                        "%s: palvelin ei tunne osoitetta %s (404). Tarkista "
+                        "palvelinosoite — tai siltarajapinta on siirtynyt.",
+                        TUOTENIMI, POLKU_HAVAINNOT,
                     )
                 elif vastaus.status == 413:
                     # 🔴 Kerrotaan tasmallisesti mita tehda. Pelkka "413" ei auta ketaan.
                     _LOGGER.error(
-                        "Ohjaamo: lahetys oli liian iso (era %s/%s, %s entiteettia). "
+                        "%s: lahetys oli liian iso (era %s/%s, %s entiteettia). "
                         "Valitse asetuksista vain tarvitsemasi entiteetit.",
-                        osa, osia, len(havainnot),
+                        TUOTENIMI, osa, osia, len(havainnot),
                     )
                 elif vastaus.status >= 400:
-                    _LOGGER.error("Ohjaamo: palvelin vastasi %s (era %s/%s)", vastaus.status, osa, osia)
+                    _LOGGER.error("%s: palvelin vastasi %s (era %s/%s)",
+                                  TUOTENIMI, vastaus.status, osa, osia)
                 else:
-                    _LOGGER.debug("Ohjaamo: era %s/%s, %s havaintoa", osa, osia, len(havainnot))
+                    _LOGGER.debug("%s: era %s/%s, %s havaintoa",
+                                  TUOTENIMI, osa, osia, len(havainnot))
                     # 🔴 KOMENNOT SAMASTA VASTAUKSESTA. Nain ohjaus toimii ilman etta
                     # kotiverkkoon avataan mitaan: HA kysyy komennot samalla kutsulla
-                    # jolla se lahettaa havainnot. Ohjaamo ei koskaan avaa yhteytta
+                    # jolla se lahettaa havainnot. Palvelin ei koskaan avaa yhteytta
                     # kotiin — se on koko "ilman pilvipalvelua" -lupauksen ydin.
                     try:
                         data = await vastaus.json()
@@ -194,29 +212,32 @@ async def _kaynnista(hass, *, palvelin, tunnus, entiteetit, vali):
                     for komento in (data.get("komennot") or []):
                         await _aja_komento(hass, komento)
         except asyncio.TimeoutError:
-            _LOGGER.warning("Ohjaamo: aikakatkaisu — yritetaan uudelleen %s s kuluttua", vali)
+            _LOGGER.warning("%s: aikakatkaisu — yritetaan uudelleen %s s kuluttua",
+                            TUOTENIMI, vali)
         except Exception as virhe:  # noqa: BLE001
             # 🔴 Silta ei saa koskaan kaataa Home Assistantia. Virhe kirjataan ja
             # seuraava kierros yrittaa uudelleen.
-            _LOGGER.warning("Ohjaamo: lahetys epaonnistui: %s", virhe)
+            _LOGGER.warning("%s: lahetys epaonnistui: %s", TUOTENIMI, virhe)
 
     async_track_time_interval(hass, laheta, timedelta(seconds=vali))
     hass.async_create_task(laheta())
 
     _LOGGER.info(
-        "Ohjaamo-silta kaynnistetty: %s, valitys %s s, palvelin %s",
+        "%s-silta kaynnistetty: %s, valitys %s s, palvelin %s",
+        TUOTENIMI,
         f"{len(entiteetit)} valittua entiteettia" if entiteetit else "KAIKKI tuetut entiteetit",
         vali, palvelin,
     )
     return True
 
+
 async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
     """
     Kaynnista silta asetusdialogin kautta.
 
-    🔴 Sama laheytyslogiikka kuin YAML-polussa, mutta asetukset tulevat
+    🔴 Sama lahetyslogiikka kuin YAML-polussa, mutta asetukset tulevat
     config_entrysta. Molemmat polut tuetaan: YAML toimii yha niille jotka ovat sen jo
-    ottaneet kayttoon, eika kenenkaan asennus hajoa paivityksessa.
+    ottaneet kayttoon.
     """
     asetukset = {**entry.data, **entry.options}
 
@@ -229,13 +250,13 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
     # "Uudelleentunnistaudu"-napin sen sijaan etta integraatio olisi vain rikki.
     virhe = await _testaa(hass, asetukset)
     if virhe == "tunnus_ei_kelpaa":
-        raise ConfigEntryAuthFailed("Ohjaamon tunnus ei kelpaa")
+        raise ConfigEntryAuthFailed("Klevra Homen tunnus ei kelpaa")
     if virhe:
-        raise ConfigEntryNotReady(f"Ohjaamoon ei saada yhteytta: {virhe}")
+        raise ConfigEntryNotReady(f"Klevra Homeen ei saada yhteytta: {virhe}")
 
     await _kaynnista(
         hass,
-        palvelin=asetukset.get(CONF_PALVELIN, OLETUS_PALVELIN),
+        palvelin=asetukset[CONF_PALVELIN],
         tunnus=asetukset[CONF_TUNNUS],
         entiteetit=asetukset[CONF_ENTITEETIT],
         vali=int(asetukset.get(CONF_VALI, OLETUS_VALI)),
@@ -260,12 +281,12 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
 async def _testaa(hass, asetukset) -> str | None:
     """Kokeile yhteytta. Palauttaa virhekoodin tai None."""
     istunto = async_get_clientsession(hass)
-    palvelin = str(asetukset.get(CONF_PALVELIN, OLETUS_PALVELIN)).rstrip("/")
+    palvelin = str(asetukset[CONF_PALVELIN]).rstrip("/")
     try:
         async with istunto.post(
-            f"{palvelin}/api/ohjaamo/silta/havainnot",
+            f"{palvelin}{POLKU_HAVAINNOT}",
             json={"havainnot": [{"entiteetti": "test.yhteys", "tila": "0", "nimi": "Yhteystesti"}]},
-            headers={"X-Ohjaamo-Silta": asetukset[CONF_TUNNUS]},
+            headers={OTSAKE_TUNNUS: asetukset[CONF_TUNNUS]},
             timeout=15,
         ) as vastaus:
             if vastaus.status == 401:
@@ -279,7 +300,7 @@ async def _testaa(hass, asetukset) -> str | None:
 
 def _alueen_nimi(hass, entity_id: str) -> str | None:
     """
-    🔴 HA:n ALUE = OHJAAMON HUONE (VUORIn ehdotus).
+    🔴 HA:n ALUE = SOVELLUKSEN HUONE (VUORIn ehdotus).
 
     Ilman tata kayttajan pitaa asettaa huone erikseen jokaiselle anturille. Nikon
     tilissa on 54 laitetta, joten se on 54 muokkausta kasin. Home Assistantissa alue on
@@ -306,7 +327,7 @@ def _alueen_nimi(hass, entity_id: str) -> str | None:
 
 
 def _laitteen_id(hass, entity_id: str) -> str | None:
-    """Mihin fyysiseen laitteeseen entiteetti kuuluu. Ohjaamo ryhmittaa sen mukaan."""
+    """Mihin fyysiseen laitteeseen entiteetti kuuluu. Palvelin ryhmittaa sen mukaan."""
     try:
         ent = entity_registry.async_get(hass)
         merkinta = ent.async_get(entity_id)
@@ -317,7 +338,7 @@ def _laitteen_id(hass, entity_id: str) -> str | None:
 
 async def _aja_komento(hass, komento) -> None:
     """
-    Aja Ohjaamosta tullut komento Home Assistantin palveluna.
+    Aja Klevra Homesta tullut komento Home Assistantin palveluna.
 
     🔴 Palvelu ja kentat tulevat HA:n OMASTA mallista (esim. water_heater.set_temperature),
     joten uusi laitetyyppi toimii ilman muutoksia tahan. Emme tulkitse komentoa emmeka
@@ -327,13 +348,14 @@ async def _aja_komento(hass, komento) -> None:
         palvelu = str(komento.get("palvelu") or "")
         entiteetti = str(komento.get("entiteetti") or "")
         if "." not in palvelu or not entiteetti:
-            _LOGGER.warning("Ohjaamo: virheellinen komento ohitettu: %s", komento)
+            _LOGGER.warning("%s: virheellinen komento ohitettu: %s", TUOTENIMI, komento)
             return
         domain, toiminto = palvelu.split(".", 1)
         tiedot = dict(komento.get("tiedot") or {})
         tiedot["entity_id"] = entiteetti
         await hass.services.async_call(domain, toiminto, tiedot, blocking=False)
-        _LOGGER.info("Ohjaamo: ajettiin %s -> %s", palvelu, entiteetti)
+        _LOGGER.info("%s: ajettiin %s -> %s", TUOTENIMI, palvelu, entiteetti)
     except Exception as virhe:  # noqa: BLE001
         # Yhden komennon vika ei saa estaa muita eika kaataa lahetysta.
-        _LOGGER.warning("Ohjaamo: komento epaonnistui (%s): %s", komento.get("palvelu"), virhe)
+        _LOGGER.warning("%s: komento epaonnistui (%s): %s",
+                        TUOTENIMI, komento.get("palvelu"), virhe)
